@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm";
-import { mysqlTable, serial, varchar, int } from "drizzle-orm/mysql-core";
+import { mysqlTable, varchar, int, boolean } from "drizzle-orm/mysql-core";
 
 export const roles = mysqlTable("roles", {
   id: int("id").primaryKey().autoincrement(),
@@ -11,8 +11,10 @@ export const users = mysqlTable("users", {
   username: varchar("username", { length: 50 }).notNull(),
   email: varchar("email", { length: 100 }).notNull(),
   phone: varchar("phone", { length: 30 }).notNull(),
-  pin: varchar("pin", { length: 4 }).notNull(),
+  pin: varchar("pin", { length: 4 }),
   password: varchar("password", { length: 255 }).notNull(),
+  pinUpdated: boolean("pin_updated").default(false).notNull(), // Changed to boolean
+  passwordUpdated: boolean("password_updated").default(false).notNull(), // Changed to boolean
   roleId: int("role_id")
     .notNull()
     .references(() => roles.id),

@@ -13,10 +13,10 @@ const authRouter = express.Router();
 authRouter.post(
   "/login",
   async (req: express.Request, res: express.Response): Promise<void> => {
-    const { phone, password } = req.body;
+    const { username, password } = req.body; // Changed to username and password
 
     try {
-      // Fetch user by phone number along with their role
+      // Fetch user by username along with their role
       const usersResult = await db
         .select({
           id: users.id,
@@ -26,7 +26,7 @@ authRouter.post(
         })
         .from(users)
         .leftJoin(roles, eq(roles.id, users.roleId)) // Fix: Use eq correctly
-        .where(eq(users.phone, phone)) // Fix: Use eq correctly
+        .where(eq(users.username, username)) // Changed to filter by username
         .execute();
 
       const user = usersResult[0]; // Get the first result
@@ -76,10 +76,10 @@ authRouter.post(
 authRouter.post(
   "/admin-login",
   async (req: express.Request, res: express.Response): Promise<void> => {
-    const { phone, password } = req.body;
+    const { username, password } = req.body;
 
     try {
-      // Fetch user by phone number along with their role
+      // Fetch user by username along with their role
       const usersResult = await db
         .select({
           id: users.id,
@@ -89,7 +89,7 @@ authRouter.post(
         })
         .from(users)
         .leftJoin(roles, eq(roles.id, users.roleId)) // Fix: Use eq correctly
-        .where(eq(users.phone, phone)) // Fix: Use eq correctly
+        .where(eq(users.username, username)) // Filter by username
         .execute();
 
       const user = usersResult[0]; // Get the first result

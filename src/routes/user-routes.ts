@@ -22,13 +22,12 @@ userRouter.post(
       !username ||
       !email ||
       !phone ||
-      !pin ||
       !password ||
       !roleId ||
       !walletId ||
       !apiKey
     ) {
-      res.status(400).json({ error: "All fields are required" });
+      res.status(400).json({ error: "Required fields are missing" });
       return;
     }
 
@@ -42,7 +41,7 @@ userRouter.post(
           username,
           email,
           phone,
-          pin,
+          ...(pin && { pin }), // Include pin only if provided
           password: hashedPassword,
           roleId,
         })
@@ -90,8 +89,6 @@ userRouter.get(
           username: users.username,
           email: users.email,
           phone: users.phone,
-          walletId: wallets.walletId, // Include walletId in the response
-          apiKey: wallets.apiKey, // Include walletId in the response
         })
         .from(users)
         .leftJoin(roles, eq(roles.id, users.roleId))
@@ -122,9 +119,8 @@ userRouter.get(
           email: users.email,
           phone: users.phone,
           role: roles.name,
-          walletId: wallets.walletId,
-          apiKey: wallets.apiKey,
-          identificationId: wallets.identificationId,
+          pin: users.pin,
+          identificationId: wallets.identificationId, // Keep identificationId if needed
         })
         .from(users)
         .leftJoin(roles, eq(roles.id, users.roleId))
@@ -162,8 +158,6 @@ userRouter.get(
           email: users.email,
           phone: users.phone,
           role: roles.name,
-          walletId: wallets.walletId,
-          apiKey: wallets.apiKey,
         })
         .from(users)
         .leftJoin(roles, eq(roles.id, users.roleId))
@@ -185,6 +179,64 @@ userRouter.get(
   }
 );
 
+// Check if the authenticated user has updated their pin
+userRouter.get(
+  "/users/me/has-updated-pin",
+  authenticate,
+  authorize(["ADMIN"]), // Use authorize to restrict access to ADMIN role
+  async (req: Request, res: Response) => {
+    const userId = req.user?.id;
+
+    try {
+      const user = await db
+        .select({ pinUpdated: users.pinUpdated })
+        .from(users)
+        .where(eq(users.id, Number(userId)))
+        .execute()
+        .then((result) => result[0]);
+
+      if (!user) {
+        res.status(404).json({ error: "User not found" });
+        return;
+      }
+
+      res.json({ hasUpdatedPin: !!user.pinUpdated });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+);
+
+// Check if the authenticated user has updated their password
+userRouter.get(
+  "/users/me/has-updated-password",
+  authenticate,
+  authorize(["ADMIN"]), // Use authorize to restrict access to ADMIN role
+  async (req: Request, res: Response) => {
+    const userId = req.user?.id;
+
+    try {
+      const user = await db
+        .select({ passwordUpdated: users.passwordUpdated })
+        .from(users)
+        .where(eq(users.id, Number(userId)))
+        .execute()
+        .then((result) => result[0]);
+
+      if (!user) {
+        res.status(404).json({ error: "User not found" });
+        return;
+      }
+
+      res.json({ hasUpdatedPassword: !!user.passwordUpdated });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+);
+
 // Update a user
 userRouter.put(
   "/users/:id",
@@ -192,7 +244,7 @@ userRouter.put(
   authorize(["SUPER_ADMIN"]),
   async (req: Request, res: Response) => {
     const { id } = req.params;
-    const { username, email, phone, walletId, apiKey } = req.body;
+    const { username, email, phone } = req.body; // Removed walletId and apiKey from payload
 
     try {
       // Update user details
@@ -206,17 +258,7 @@ userRouter.put(
         .where(eq(users.id, Number(id)))
         .execute();
 
-      // Update wallet details
-      await db
-        .update(wallets)
-        .set({
-          ...(walletId && { walletId }),
-          ...(apiKey && { apiKey }),
-        })
-        .where(eq(wallets.userId, Number(id)))
-        .execute();
-
-      res.json({ message: "User and wallet updated successfully" });
+      res.json({ message: "User updated successfully" });
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: "Internal server error" });
@@ -239,7 +281,7 @@ userRouter.put(
     }
 
     try {
-      const result = await db
+      await db
         .update(users)
         .set({ pin })
         .where(eq(users.id, Number(id)))
